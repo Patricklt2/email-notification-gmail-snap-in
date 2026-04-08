@@ -1,0 +1,169 @@
+# Send Gmail Email — Snap-in Documentation
+
+The **Send Gmail Email** snap-in lets you send emails directly from a DevRev workflow using your own Gmail account via the Gmail API and Google OAuth2. You can send rich HTML or plain-text emails, add CC/BCC recipients, and attach files stored as DevRev artifacts — all from a single workflow action node.
+
+---
+
+## What this snap-in does
+
+When a workflow reaches the **Send Gmail email** action node, the snap-in:
+
+1. Reads the recipient addresses, subject, body, and optional attachments you configured in the node.
+2. Authenticates to the Gmail API using the OAuth2 credentials stored in your DevRev keyring.
+3. Sends the email from the Gmail account associated with those credentials.
+4. Returns a `success` flag and, on failure, an `error_message` that the workflow can branch on.
+
+---
+
+## Prerequisites
+
+Before you install the snap-in, you need:
+
+- A **Google account** (Gmail or Google Workspace) that will be the sending address.
+- A **Google Cloud project** with the **Gmail API** enabled.
+- An **OAuth 2.0 client** (Web application or Desktop type) created in that project, plus a **refresh token** for the sending account.
+- Admin access to your DevRev organization to install snap-ins.
+
+---
+
+## How to install
+
+1. Open your DevRev organization and go to **Settings → Snap-ins**.
+2. Find **email-notification-gmail** in the marketplace and click **Install**.
+3. Once installed, the snap-in appears in the snap-ins list with a **Configure** button.
+
+---
+
+## How to configure
+
+Configuration happens in two places: Google Cloud (once, to get credentials) and DevRev (to store them securely).
+
+### Step 1 — Create Google OAuth credentials
+
+1. Open [Google Cloud Console](https://console.cloud.google.com/) and select (or create) a project.
+2. Go to **APIs & Services → Library**, search for **Gmail API**, and click **Enable**.
+3. Go to **APIs & Services → Credentials** and click **Create Credentials → OAuth client ID**.
+4. Choose **Desktop app** (or Web application) as the application type.
+5. Note the **Client ID** and **Client Secret** that are generated.
+6. Run the OAuth consent flow for the sending Google account and obtain a **refresh token**.
+   - The required scope is `https://www.googleapis.com/auth/gmail.send`.
+   - A common redirect URI for desktop/script flows is `urn:ietf:wg:oauth:2.0:oob`.
+7. Keep the following four values safe — you need them in the next step:
+   - `client_id`
+   - `client_secret`
+   - `redirect_uri`
+   - `refresh_token`
+
+### Step 2 — Add the keyring in DevRev
+
+1. In DevRev, go to **Settings → Snap-ins** and open **email-notification-gmail → Configure**.
+2. Under **Gmail OAuth**, click **Add keyring**.
+3. Enter the four values from Step 1:
+
+   | Field | Value |
+   |-------|-------|
+   | Client ID | Your OAuth client ID |
+   | Client Secret | Your OAuth client secret |
+   | Redirect URI | The URI you used during the consent flow (e.g. `urn:ietf:wg:oauth:2.0:oob`) |
+   | Refresh Token | The refresh token for the sending account |
+
+4. Save the keyring. DevRev stores these credentials encrypted — they never appear in plain text in workflow logs.
+
+> **Note:** The email is sent *from* the Gmail account that the refresh token belongs to. Make sure that account has permission to send email.
+
+---
+
+## How to use it in a workflow
+
+1. Open the **Workflow Builder** in DevRev.
+2. Add an action node and select **Send Gmail email**.
+3. The node exposes the following fields:
+
+### Input fields
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| **To** | Yes | Recipient email addresses, comma-separated. Accepts plain addresses (`user@example.com`) or named format (`Jane Smith <user@example.com>`). |
+| **CC** | No | Carbon-copy addresses, comma-separated. Same format as **To**. |
+| **BCC** | No | Blind carbon-copy addresses, comma-separated. Same format as **To**. |
+| **Subject** | Yes | The subject line of the email. |
+| **Body** | Yes | The email body. Write HTML markup when **Body format** is `html`, or plain prose when it is `plain`. |
+| **Body format** | No | `html` (default) or `plain`. Controls how the body is interpreted by the recipient's email client. |
+| **Attachments** | No | One or more DevRev artifacts to attach. Use the artifact picker in the workflow UI — it automatically passes artifact IDs to the snap-in. |
+
+4. Map workflow variables into any of the fields. For example, you can inject a ticket number into the **Subject** or a customer name into the **Body**.
+5. Save and publish the workflow.
+
+### Recipient format examples
+
+```
+user@example.com
+Jane Smith <jane@example.com>
+alice@example.com, Bob Jones <bob@example.com>
+```
+
+---
+
+## Attachments
+
+The snap-in fetches files stored as DevRev artifacts and attaches them to the email as standard MIME attachments.
+
+**Limits:**
+
+| Limit | Value |
+|-------|-------|
+| Maximum number of attachments | 10 |
+| Maximum total attachment size | 25 MB |
+| Blocked file types | `.eml` files (prevents email loops) |
+
+> **Tip:** Stay within [Gmail's daily sending limits](https://support.google.com/a/answer/166852). For high-volume use, consider a dedicated sending account or Google Workspace.
+
+---
+
+## What happens when the action runs
+
+1. The snap-in validates all required fields (To, Subject, Body).
+2. It resolves the Gmail OAuth keyring credentials.
+3. It fetches any specified artifact files from DevRev.
+4. It sends the email via the Gmail API from the configured account.
+5. It returns outputs to the workflow:
+
+### Output fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| **success** | Boolean | `true` if the email was sent successfully, `false` otherwise. |
+| **error_message** | Text | Empty on success. Contains a human-readable error description on failure. |
+
+You can branch the workflow on `success` to handle failures — for example, to create a follow-up ticket or notify a team member.
+
+---
+
+## How to verify the result
+
+After a workflow run that includes the **Send Gmail email** node:
+
+1. **Check the recipient's inbox.** The email arrives from the Gmail account whose refresh token you configured. Check the Sent folder of that Gmail account to confirm delivery.
+2. **Check workflow run history.** In DevRev, open the workflow and view its run log. The **Send Gmail email** node shows `success: true` on a successful run, or `success: false` with an `error_message` on failure.
+3. **Common error messages and what they mean:**
+
+   | Error message | Cause | Fix |
+   |---------------|-------|-----|
+   | `Gmail OAuth keyring is not configured.` | The keyring is missing or empty. | Re-open the snap-in settings and add the keyring credentials. |
+   | `One or more To addresses are invalid.` | A recipient address fails email format validation. | Check the **To** field for typos or unsupported formats. |
+   | `At most 10 attachments are allowed.` | More than 10 artifact IDs were passed. | Reduce the number of attachments to 10 or fewer. |
+   | `Total attachment size exceeds 25 MB limit.` | Combined artifact file size is too large. | Use smaller files or send attachments in separate emails. |
+   | `Cannot attach .eml files.` | An artifact is an `.eml` email file. | Remove `.eml` artifacts from the attachment list. |
+   | `To is required.` | The **To** field is empty. | Ensure a valid recipient address is always provided. |
+
+---
+
+## Best practices
+
+- **Use a dedicated sending account.** Create a Google Workspace account (e.g. `notifications@yourcompany.com`) specifically for automated email. This avoids mixing personal email history with system notifications.
+- **Prefer HTML body format.** HTML allows you to structure your message with headings, links, and styling that is easier for recipients to read.
+- **Use workflow variables for personalization.** Inject dynamic values — ticket IDs, customer names, URLs — directly into the Subject and Body fields rather than hardcoding them.
+- **Keep attachments small.** Fetch only what the recipient needs. Large attachments slow delivery and may be blocked by recipient mail servers.
+- **Branch on `success`.** Always connect the `success = false` output path to a fallback action (e.g. a comment on the ticket) so failures do not go unnoticed.
+- **Protect your credentials.** The refresh token grants full send access to the linked Gmail account. Rotate it if you suspect it has been exposed. DevRev keyrings store credentials encrypted and do not expose them in logs.
+- **Avoid `.eml` attachments.** The snap-in blocks these files to prevent email loop scenarios where an automated reply triggers another automated send.

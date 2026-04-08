@@ -1,0 +1,48 @@
+[
+  {
+    "payload": {
+      "data": {
+        "to": "recipient@example.com",
+        "cc": "",
+        "bcc": "",
+        "subject": "Test from fixture",
+        "body": "<p>Hello</p>",
+        "artifact_ids": ["art:123", "art:456"]
+      },
+      "input_port_name": "input",
+      "metadata": {
+        "namespace": "devrev",
+        "slug": "send_gmail_email"
+      }
+    },
+    "context": {
+      "secrets": {
+        "service_account_token": "test-token"
+      },
+      "service_account_id": "svc:1",
+      "dev_oid": "don:identity:dvrv-us-1:devo/1",
+      "source_id": "op:1",
+      "snap_in_id": "snap:1",
+      "snap_in_version_id": "ver:1",
+      "automation_id": ""
+    },
+    "execution_metadata": {
+      "function_name": "operation_handler",
+      "request_id": "",
+      "devrev_endpoint": "https://api.devrev.ai"
+    },
+    "input_data": {
+      "event_sources": {},
+      "global_values": {},
+      "resources": {
+        "keyrings": {
+          "gmail_oauth": {
+            "id": "keyring:1",
+            "type_id": "gmail-oauth-mail",
+            "secret": "{\"client_id\":\"cid\",\"client_secret\":\"csec\",\"redirect_uri\":\"urn:ietf:wg:oauth:2.0:oob\",\"refresh_token\":\"rt\"}"
+          }
+        }
+      }
+    }
+  }
+]

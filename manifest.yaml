@@ -1,0 +1,114 @@
+# For reference: https://docs.devrev.ai/snap-ins/references/manifest.
+# email-notification-gmail — Gmail via Google APIs (OAuth2 refresh token)
+
+version: "2"
+name: "email-notification-gmail"
+description: "Send email via Gmail when triggered as a workflow action node (Google OAuth2)."
+
+service_account:
+  display_name: email-notification-gmail
+
+# Workflow operations must declare keyrings under operations[].keyrings.
+
+keyring_types:
+  - id: gmail-oauth-mail
+    name: "Gmail OAuth (send mail)"
+    description: "Google OAuth client and refresh token for sending mail via Gmail API."
+    kind: secret
+    secret_config:
+      fields:
+        - id: client_id
+          name: Client ID
+          description: OAuth 2.0 Client ID
+        - id: client_secret
+          name: Client Secret
+          description: OAuth 2.0 Client Secret
+        - id: redirect_uri
+          name: Redirect URI
+          description: OAuth redirect URI (e.g. urn:ietf:wg:oauth:2.0:oob for desktop-style flows)
+        - id: refresh_token
+          name: Refresh Token
+          description: OAuth refresh token for the sending Google account
+
+functions:
+  - name: operation_handler
+    description: Handles workflow action operations (send Gmail).
+
+operations:
+  - name: send_gmail_email
+    display_name: Send Gmail email
+    slug: send_gmail_email
+    function: operation_handler
+    description: Sends an email via Gmail API using OAuth2 credentials from the keyring.
+    type: action
+    keyrings:
+      - name: gmail_oauth
+        display_name: Gmail OAuth
+        description: Google OAuth client ID, secret, redirect URI, and refresh token for Gmail API.
+        types:
+          - gmail-oauth-mail
+    inputs:
+      fields:
+        - name: to
+          description: Recipient addresses, comma-separated. Supports Name <email@domain.com> or email@domain.com.
+          field_type: text
+          is_required: true
+          ui:
+            display_name: To
+        - name: cc
+          description: CC addresses, comma-separated (optional).
+          field_type: text
+          is_required: false
+          ui:
+            display_name: CC
+        - name: bcc
+          description: BCC addresses, comma-separated (optional).
+          field_type: text
+          is_required: false
+          ui:
+            display_name: BCC
+        - name: subject
+          description: Email subject.
+          field_type: text
+          is_required: true
+          ui:
+            display_name: Subject
+        - name: body
+          description: Email body. Use HTML when body_format is html; plain text when body_format is plain.
+          field_type: text
+          is_required: true
+          ui:
+            display_name: Body
+        - name: body_format
+          description: Whether the body is HTML or plain text.
+          field_type: enum
+          allowed_values:
+            - html
+            - plain
+          is_required: false
+          default_value: "html"
+          ui:
+            display_name: Body format
+        - name: artifact_ids
+          description: >-
+            Artifacts to attach (max 10). Total size must not exceed 25 MB. .eml files are blocked.
+          base_type: id
+          field_type: array
+          id_type:
+            - artifact
+          is_required: false
+          ui:
+            display_name: Attachments
+    outputs:
+      fields:
+        - name: success
+          field_type: bool
+          is_required: true
+          default_value: false
+          ui:
+            display_name: Success
+        - name: error_message
+          field_type: text
+          is_required: false
+          ui:
+            display_name: Error message
