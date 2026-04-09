@@ -19,4 +19,3 @@ describe('normalizeArtifactIds', () => {
     expect(normalizeArtifactIds('art:1, art:2')).toEqual(['art:1, art:2']);
   });
 });
-

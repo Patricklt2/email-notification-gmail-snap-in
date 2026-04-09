@@ -1,7 +1,7 @@
 import { ExecuteOperationInput, FunctionInput, OperationMap } from '@devrev/typescript-sdk/dist/snap-ins';
 
-import { OperationFactory } from '../../operations';
 import { createGmailLogger } from '../../lib/gmail-logger';
+import { OperationFactory } from '../../operations';
 import { logFullIncomingEvent } from './log_full_event';
 import { SendGmailEmailOp } from './send_gmail_email';
 

@@ -1,8 +1,8 @@
-export function parseArtifactIds(raw: string | undefined | null):
-  | { ok: true; ids: string[] }
-  | { ok: false; error: string } {
+export function parseArtifactIds(
+  raw: string | undefined | null
+): { ok: true; ids: string[] } | { ok: false; error: string } {
   if (raw === undefined || raw === null || String(raw).trim() === '') {
-    return { ok: true, ids: [] };
+    return { ids: [], ok: true };
   }
 
   const text = String(raw).trim();
@@ -15,11 +15,17 @@ export function parseArtifactIds(raw: string | undefined | null):
     try {
       const parsed = JSON.parse(text) as unknown;
       if (!Array.isArray(parsed)) {
-        return { ok: false, error: 'attachments must be a comma-separated list of artifact IDs or a JSON array of strings.' };
+        return {
+          error: 'attachments must be a comma-separated list of artifact IDs or a JSON array of strings.',
+          ok: false,
+        };
       }
       ids = parsed.map((v) => String(v));
     } catch {
-      return { ok: false, error: 'attachments must be a comma-separated list of artifact IDs or a JSON array of strings.' };
+      return {
+        error: 'attachments must be a comma-separated list of artifact IDs or a JSON array of strings.',
+        ok: false,
+      };
     }
   } else {
     ids = text
@@ -30,11 +36,10 @@ export function parseArtifactIds(raw: string | undefined | null):
 
   const unique = Array.from(new Set(ids));
   if (unique.some((id) => !id.trim())) {
-    return { ok: false, error: 'attachments contains an empty artifact id.' };
+    return { error: 'attachments contains an empty artifact id.', ok: false };
   }
 
   // Keep validation loose: allow "art:..." and DON forms.
   // Most errors will be caught by artifacts.locate.
-  return { ok: true, ids: unique };
+  return { ids: unique, ok: true };
 }
-

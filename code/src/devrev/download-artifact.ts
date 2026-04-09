@@ -3,7 +3,7 @@
  */
 
 import { client } from '@devrev/typescript-sdk';
-import axios, { AxiosError, AxiosResponse } from 'axios';
+import axios, { type AxiosError, type AxiosResponse, isAxiosError } from 'axios';
 
 import type { GmailSnapInLogger } from '../lib/gmail-logger';
 
@@ -27,8 +27,13 @@ function normalizeEndpoint(endpoint: string): string {
   return endpoint.replace(/\/$/, '');
 }
 
-function logAxiosArtifactError(logger: GmailSnapInLogger | undefined, label: string, artifactId: string, err: unknown): void {
-  if (!logger || !axios.isAxiosError(err)) {
+function logAxiosArtifactError(
+  logger: GmailSnapInLogger | undefined,
+  label: string,
+  artifactId: string,
+  err: unknown
+): void {
+  if (!logger || !isAxiosError(err)) {
     return;
   }
   const ax = err as AxiosError<unknown>;
@@ -55,8 +60,8 @@ export async function getArtifactMetadata(
   try {
     const res = await axios.get<ArtifactsGetResponse, AxiosResponse<ArtifactsGetResponse>>(base, {
       headers: { Authorization: token },
-      timeout: HTTP_TIMEOUT_MS,
       params: { id: artifactId },
+      timeout: HTTP_TIMEOUT_MS,
     });
     data = res.data;
   } catch (err) {
@@ -113,4 +118,3 @@ export async function downloadArtifactBytes(
 
   return Buffer.from(response.data as ArrayBuffer);
 }
-

@@ -11,6 +11,8 @@ import {
   OutputValue,
 } from '@devrev/typescript-sdk/dist/snap-ins';
 
+import { resolveArtifactAttachments } from '../../devrev/devrev-artifacts';
+import { normalizeArtifactIds } from '../../devrev/normalize-artifact-ids';
 import {
   parseEmailRecipient,
   recipientLinesToValidatedAddresses,
@@ -21,9 +23,10 @@ import { sendGmailMessage } from '../../gmail/gmail-mail-client';
 import { parseGmailOAuthKeyringSecretJson } from '../../gmail/gmail-oauth-credentials';
 import { logKeyringDiagnostics } from '../../gmail/keyring-debug-logs';
 import { fetchSnapInResources } from '../../gmail/snap-in-resources-client';
-import { resolveArtifactAttachments } from '../../devrev/devrev-artifacts';
-import { normalizeArtifactIds } from '../../devrev/normalize-artifact-ids';
 import { createGmailLogger } from '../../lib/gmail-logger';
+import { LabsUsageTracker } from '../../lib/labs_usage';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const packageJson = require('../../../package.json');
 
 export { resolveGmailOAuthKeyringSecret } from '../../gmail/gmail-keyring';
 
@@ -66,7 +69,7 @@ export class SendGmailEmailOp extends OperationBase {
    */
   private rejectCrlf(label: string, value: string): { ok: true } | { ok: false; error: string } {
     if (value.includes('\r') || value.includes('\n')) {
-      return { ok: false, error: `${label} must not contain newlines.` };
+      return { error: `${label} must not contain newlines.`, ok: false };
     }
     return { ok: true };
   }
@@ -93,7 +96,9 @@ export class SendGmailEmailOp extends OperationBase {
     return keyringSecretJson;
   }
 
-  private parseRecipientsOrFail(params: Record<string, unknown>): { ok: true; to: string[]; cc: string[]; bcc: string[] } | { ok: false; error: string } {
+  private parseRecipientsOrFail(
+    params: Record<string, unknown>
+  ): { ok: true; to: string[]; cc: string[]; bcc: string[] } | { ok: false; error: string } {
     try {
       const toLines = splitRecipientList(params['to'] as string | undefined);
       const ccLines = splitRecipientList(params['cc'] as string | undefined);
@@ -102,15 +107,15 @@ export class SendGmailEmailOp extends OperationBase {
       // Basic CRLF protection before values are placed into message headers.
       const allLines = [...toLines, ...ccLines, ...bccLines];
       if (allLines.some((l) => l.includes('\r') || l.includes('\n'))) {
-        return { ok: false, error: 'Recipient fields must not contain newlines.' };
+        return { error: 'Recipient fields must not contain newlines.', ok: false };
       }
 
       const toAddresses = recipientLinesToValidatedAddresses(toLines);
       const ccAddresses = recipientLinesToValidatedAddresses(ccLines);
       const bccAddresses = recipientLinesToValidatedAddresses(bccLines);
-      return { ok: true, bcc: bccAddresses, cc: ccAddresses, to: toAddresses };
+      return { bcc: bccAddresses, cc: ccAddresses, ok: true, to: toAddresses };
     } catch (err) {
-      return { ok: false, error: err instanceof Error ? err.message : String(err) };
+      return { error: err instanceof Error ? err.message : String(err), ok: false };
     }
   }
 
@@ -160,7 +165,8 @@ export class SendGmailEmailOp extends OperationBase {
         return this.fail('At least one valid To address is required.');
       }
 
-      let attachments: { readonly contentBase64: string; readonly contentType: string; readonly filename: string }[] = [];
+      let attachments: { readonly contentBase64: string; readonly contentType: string; readonly filename: string }[] =
+        [];
       try {
         attachments = await resolveArtifactAttachments(this.snapEvent, artifactIds, this.logger);
       } catch (err) {
@@ -181,6 +187,20 @@ export class SendGmailEmailOp extends OperationBase {
         this.logger
       );
 
+      // Track usage event for marketplace telemetry (non-blocking)
+      // This runs after the snap-in successfully completes its main operation
+      await this.trackUsageEvent({
+        attachmentCount: attachments.length,
+        bccCount: recipients.bcc.length,
+        bodyFormat,
+        ccCount: recipients.cc.length,
+        eventType: 'gmail_email_sent',
+        hasSubject: !!subjectRequired,
+        operation: 'send_gmail_email',
+        status: 'success',
+        toCount: recipients.to.length,
+      });
+
       return OperationOutput.fromJSON({
         output: {
           values: [{ error_message: '', success: true }],
@@ -189,7 +209,95 @@ export class SendGmailEmailOp extends OperationBase {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error('SendGmailEmailOp error:', error);
+
+      // Track failure event for marketplace telemetry (non-blocking)
+      await this.trackUsageEvent({
+        errorType: error instanceof Error ? error.constructor.name : 'UnknownError',
+        eventType: 'gmail_email_failed',
+        operation: 'send_gmail_email',
+        status: 'failure',
+      });
+
       return this.fail(message);
+    }
+  }
+
+  /**
+   * Track usage event for DevRev marketplace telemetry
+   * This method is fail-safe and will never throw errors that interrupt the main flow
+   *
+   * @param options - Usage event options
+   */
+  private async trackUsageEvent(
+    options: {
+      eventType: string;
+      operation: string;
+      status: 'success' | 'failure';
+      attachmentCount?: number;
+      bccCount?: number;
+      bodyFormat?: string;
+      ccCount?: number;
+      errorType?: string;
+      hasSubject?: boolean;
+      toCount?: number;
+    }
+  ): Promise<void> {
+    try {
+      this.logger.info('[LabsUsageTracker] Step 1: Initializing usage tracker...');
+
+      const solutionName = 'Gmail Email Notification Snap-in';
+      const version = packageJson.version || '1.0.0';
+
+      this.logger.info(`[LabsUsageTracker] Solution: ${solutionName}, Version: ${version}`);
+
+      // Step 2: Extract service account token from snap-in event context
+      this.logger.info('[LabsUsageTracker] Step 2: Attempting to access service account token...');
+      const tracker = LabsUsageTracker.fromSnapInEvent(this.snapEvent, solutionName, version);
+
+      if (!tracker) {
+        this.logger.info('[LabsUsageTracker] Step 2: Service account token not available, skipping usage tracking');
+        this.logger.info(
+          '[LabsUsageTracker] This is expected for snap-ins not deployed through DevRev Labs marketplace'
+        );
+        return;
+      }
+
+      this.logger.info('[LabsUsageTracker] Step 2: Service account token accessed successfully ✓');
+
+      // Step 3: Build usage payload
+      this.logger.info('[LabsUsageTracker] Step 3: Building usage event payload...');
+      const usagePayload: Record<string, unknown> = {
+        operation: options.operation,
+        status: options.status,
+      };
+
+      // Add optional fields if present
+      if (options.attachmentCount !== undefined) usagePayload['attachmentCount'] = options.attachmentCount;
+      if (options.bccCount !== undefined) usagePayload['bccCount'] = options.bccCount;
+      if (options.bodyFormat) usagePayload['bodyFormat'] = options.bodyFormat;
+      if (options.ccCount !== undefined) usagePayload['ccCount'] = options.ccCount;
+      if (options.errorType) usagePayload['errorType'] = options.errorType;
+      if (options.hasSubject !== undefined) usagePayload['hasSubject'] = options.hasSubject;
+      if (options.toCount !== undefined) usagePayload['toCount'] = options.toCount;
+
+      this.logger.info('[LabsUsageTracker] Step 3: Payload built ✓');
+      this.logger.info(`[LabsUsageTracker] Payload: ${JSON.stringify(usagePayload, null, 2)}`);
+
+      // Step 4: Send usage event to DevRev Labs telemetry endpoint
+      this.logger.info('[LabsUsageTracker] Step 4: Sending usage event to telemetry endpoint...');
+      await tracker.trackUsageEvent(options.eventType, {
+        payload: usagePayload,
+        skipHealthCheck: false,
+      });
+
+      this.logger.info('[LabsUsageTracker] Step 4: Usage event sent successfully ✓');
+      this.logger.info('[LabsUsageTracker] ✓ Usage tracking completed successfully');
+    } catch (error) {
+      // Catch any unexpected errors to ensure usage tracking never interrupts the main flow
+      this.logger.info('[LabsUsageTracker] ✗ Usage tracking encountered an error (non-blocking)');
+      this.logger.info(
+        `[LabsUsageTracker] Error details: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 }

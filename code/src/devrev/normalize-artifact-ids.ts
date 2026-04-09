@@ -54,4 +54,3 @@ export function normalizeArtifactIds(raw: unknown): string[] {
   const one = coerceToArtifactIdString(raw);
   return one ? [one] : [];
 }
-

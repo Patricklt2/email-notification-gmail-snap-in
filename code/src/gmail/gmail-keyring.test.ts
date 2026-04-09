@@ -27,4 +27,3 @@ describe('gmail-keyring', () => {
     expect(out).toBe('s3');
   });
 });
-
