@@ -1,0 +1,18 @@
+# Marketplace submission config per environment.
+# After first submission, align snap_in_package_slug / listing slug with your DevRev org if different.
+# Add developer_connections (name + keyring_id) only if you add developer_keyrings to manifest.yaml.
+
+dev:
+  marketplace_listing_slug: email-notification-gmail
+  snap_in_package_slug: email-notification-gmail
+  developer_connections: []
+
+qa:
+  marketplace_listing_slug: email-notification-gmail
+  snap_in_package_slug: email-notification-gmail
+  developer_connections: []
+
+prod:
+  marketplace_listing_slug: email-notification-gmail
+  snap_in_package_slug: email-notification-gmail
+  developer_connections: []
