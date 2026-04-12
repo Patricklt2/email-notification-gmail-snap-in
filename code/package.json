@@ -54,7 +54,7 @@
     "yargs": "^17.6.2"
   },
   "dependencies": {
-    "@babel/runtime": "7.27.1",
+    "@babel/runtime": "7.29.2",
     "@devrev/typescript-sdk": "^1.1.71",
     "axios": "1.14.0"
   }
