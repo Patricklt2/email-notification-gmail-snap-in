@@ -1,7 +1,7 @@
 import { FunctionInput, OperationOutput } from '@devrev/typescript-sdk/dist/snap-ins';
 
-import { sendGmailMessage } from '../../gmail/gmail-mail-client';
 import { resolveArtifactAttachments } from '../../devrev/devrev-artifacts';
+import { sendGmailMessage } from '../../gmail/gmail-mail-client';
 import { resolveGmailOAuthKeyringSecret, SendGmailEmailOp } from './send_gmail_email';
 
 jest.mock('../../gmail/gmail-mail-client', () => ({

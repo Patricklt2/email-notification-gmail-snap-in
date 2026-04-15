@@ -2,9 +2,8 @@
  * Gmail API send via direct HTTP (OAuth2 refresh token).
  */
 
-import { randomBytes } from 'crypto';
-
 import axios from 'axios';
+import { randomBytes } from 'crypto';
 
 import type { GmailSnapInLogger } from '../lib/gmail-logger';
 import type { GmailOAuthCredentials } from './gmail-oauth-credentials';
@@ -35,21 +34,9 @@ export type GmailSendParams = {
   readonly toAddresses: string[];
 };
 
-/**
- * Builds a raw RFC 2822 message payload (CRLF line endings), suitable for encoding and sending via Gmail API.
- * This is kept pure/deterministic (except for multipart boundary) so it can be unit tested.
- */
-export function buildRawEmailMessage(params: GmailSendParams): string {
-  if (params.attachments.length > 0) {
-    return buildMultipartMixedMessage(params);
-  }
-  return buildSimpleMessage(params);
-}
-
 function buildMultipartMixedMessage(params: GmailSendParams): string {
   const boundary = `----=_Part_${Date.now()}_${randomBytes(8).toString('hex')}`;
-  const innerContentType =
-    params.bodyFormat === 'plain' ? 'text/plain; charset=UTF-8' : 'text/html; charset=UTF-8';
+  const innerContentType = params.bodyFormat === 'plain' ? 'text/plain; charset=UTF-8' : 'text/html; charset=UTF-8';
   const bodyB64 = Buffer.from(params.body, 'utf8').toString('base64');
 
   const headerBlock = [
@@ -84,8 +71,7 @@ function buildMultipartMixedMessage(params: GmailSendParams): string {
 }
 
 function buildSimpleMessage(params: GmailSendParams): string {
-  const contentType =
-    params.bodyFormat === 'plain' ? 'text/plain; charset=utf-8' : 'text/html; charset=utf-8';
+  const contentType = params.bodyFormat === 'plain' ? 'text/plain; charset=utf-8' : 'text/html; charset=utf-8';
   const headerLines = [
     `To: ${params.toAddresses.join(', ')}`,
     ...(params.ccAddresses.length > 0 ? [`Cc: ${params.ccAddresses.join(', ')}`] : []),
@@ -95,6 +81,55 @@ function buildSimpleMessage(params: GmailSendParams): string {
     `Subject: ${params.subject}`,
   ];
   return `${headerLines.join('\r\n')}\r\n\r\n${params.body}`;
+}
+
+async function refreshAccessToken(credentials: GmailOAuthCredentials, logger: GmailSnapInLogger): Promise<string> {
+  const body = new URLSearchParams({
+    client_id: credentials.clientId,
+    client_secret: credentials.clientSecret,
+    grant_type: 'refresh_token',
+    // redirect_uri is not required for refresh-token grant, but we keep it for compatibility/debugging.
+    redirect_uri: credentials.redirectUri,
+
+    refresh_token: credentials.refreshToken,
+  });
+
+  const tokenRes = await axios.post('https://oauth2.googleapis.com/token', body.toString(), {
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    maxBodyLength: 1024 * 1024,
+    maxContentLength: 1024 * 1024,
+    timeout: 30_000,
+    validateStatus: () => true,
+  });
+
+  if (tokenRes.status < 200 || tokenRes.status >= 300) {
+    const detail = typeof tokenRes.data === 'string' ? tokenRes.data : JSON.stringify(tokenRes.data);
+    logger.error('OAuth token refresh failed:', tokenRes.status, detail);
+    throw new Error(`OAuth token refresh failed with HTTP ${tokenRes.status}.`);
+  }
+
+  const accessToken =
+    tokenRes.data && typeof tokenRes.data === 'object' && 'access_token' in (tokenRes.data as Record<string, unknown>)
+      ? String((tokenRes.data as Record<string, unknown>)['access_token'] ?? '')
+      : '';
+
+  if (!accessToken) {
+    logger.error('OAuth token refresh did not return access_token:', tokenRes.data);
+    throw new Error('OAuth token refresh failed (missing access_token).');
+  }
+
+  return accessToken;
+}
+
+/**
+ * Builds a raw RFC 2822 message payload (CRLF line endings), suitable for encoding and sending via Gmail API.
+ * This is kept pure/deterministic (except for multipart boundary) so it can be unit tested.
+ */
+export function buildRawEmailMessage(params: GmailSendParams): string {
+  if (params.attachments.length > 0) {
+    return buildMultipartMixedMessage(params);
+  }
+  return buildSimpleMessage(params);
 }
 
 export async function sendGmailMessage(
@@ -120,12 +155,13 @@ export async function sendGmailMessage(
         Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
-      timeout: 30_000,
       // Request can be large because `raw` contains a base64url-encoded RFC 2822 message,
       // including attachments. DevRev-side validation limits attachments to <= 25 MB total,
       // but base64 inflates size by ~33%, so allow enough headroom.
       maxBodyLength: 40 * 1024 * 1024,
+
       maxContentLength: 1024 * 1024,
+      timeout: 30_000,
       validateStatus: () => true,
     }
   );
@@ -142,44 +178,4 @@ export async function sendGmailMessage(
       : 'unknown';
   logger.debug('Gmail send OK, message id:', messageId);
   return { messageId };
-}
-
-async function refreshAccessToken(
-  credentials: GmailOAuthCredentials,
-  logger: GmailSnapInLogger
-): Promise<string> {
-  const body = new URLSearchParams({
-    client_id: credentials.clientId,
-    client_secret: credentials.clientSecret,
-    grant_type: 'refresh_token',
-    refresh_token: credentials.refreshToken,
-    // redirect_uri is not required for refresh-token grant, but we keep it for compatibility/debugging.
-    redirect_uri: credentials.redirectUri,
-  });
-
-  const tokenRes = await axios.post('https://oauth2.googleapis.com/token', body.toString(), {
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    timeout: 30_000,
-    maxBodyLength: 1024 * 1024,
-    maxContentLength: 1024 * 1024,
-    validateStatus: () => true,
-  });
-
-  if (tokenRes.status < 200 || tokenRes.status >= 300) {
-    const detail = typeof tokenRes.data === 'string' ? tokenRes.data : JSON.stringify(tokenRes.data);
-    logger.error('OAuth token refresh failed:', tokenRes.status, detail);
-    throw new Error(`OAuth token refresh failed with HTTP ${tokenRes.status}.`);
-  }
-
-  const accessToken =
-    tokenRes.data && typeof tokenRes.data === 'object' && 'access_token' in (tokenRes.data as Record<string, unknown>)
-      ? String((tokenRes.data as Record<string, unknown>)['access_token'] ?? '')
-      : '';
-
-  if (!accessToken) {
-    logger.error('OAuth token refresh did not return access_token:', tokenRes.data);
-    throw new Error('OAuth token refresh failed (missing access_token).');
-  }
-
-  return accessToken;
 }

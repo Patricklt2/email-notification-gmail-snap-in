@@ -42,4 +42,3 @@ describe('buildRawEmailMessage', () => {
     expect(raw).toContain('Content-Transfer-Encoding: base64\r\n');
   });
 });
-

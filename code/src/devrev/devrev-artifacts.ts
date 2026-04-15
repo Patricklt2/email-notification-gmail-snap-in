@@ -1,7 +1,7 @@
 import type { FunctionInput } from '@devrev/typescript-sdk/dist/snap-ins';
 
-import type { GmailSnapInLogger } from '../lib/gmail-logger';
 import type { ParsedAttachment } from '../gmail/parse-attachments';
+import type { GmailSnapInLogger } from '../lib/gmail-logger';
 import { downloadArtifactBytes, getArtifactMetadata } from './download-artifact';
 
 const MAX_ATTACHMENTS = 10;
@@ -14,17 +14,6 @@ function resolveBearerToken(event: FunctionInput): string | null {
     return null;
   }
   return token.startsWith('Bearer ') ? token : `Bearer ${token}`;
-}
-
-function parseFilenameFromContentDisposition(header: string | undefined): string | null {
-  if (!header) return null;
-  const m = /filename\*?=(?:UTF-8''|\"?)([^\";]+)\"?/i.exec(header);
-  if (!m) return null;
-  try {
-    return decodeURIComponent(m[1]);
-  } catch {
-    return m[1];
-  }
 }
 
 function sanitizeFilename(name: string): string {
@@ -79,4 +68,3 @@ export async function resolveArtifactAttachments(
 
   return attachments;
 }
-
