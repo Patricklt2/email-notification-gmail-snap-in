@@ -7,6 +7,11 @@ description: "Send email via Gmail when triggered as a workflow action node (Goo
 
 service_account:
   display_name: email-notification-gmail
+  scopes:
+    self:
+      - scope: artifact:read
+        optional: false
+        reason: Read DevRev artifacts to attach files to Gmail emails sent via the snap-in.
 
 # Workflow operations must declare keyrings under operations[].keyrings.
 
