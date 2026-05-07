@@ -55,7 +55,7 @@
   },
   "dependencies": {
     "@babel/runtime": "7.29.2",
-    "@devrev/typescript-sdk": "^1.1.71",
+    "@devrev/typescript-sdk": "^1.1.72",
     "axios": "1.15.2"
   }
 }
