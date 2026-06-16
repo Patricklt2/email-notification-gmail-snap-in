@@ -38,8 +38,8 @@
         "keyrings": {
           "gmail_oauth": {
             "id": "keyring:1",
-            "type_id": "gmail-oauth-mail",
-            "secret": "{\"client_id\":\"cid\",\"client_secret\":\"csec\",\"redirect_uri\":\"urn:ietf:wg:oauth:2.0:oob\",\"refresh_token\":\"rt\"}"
+            "type_id": "gmail-oauth",
+            "secret": "ya29.test-access-token"
           }
         }
       }
