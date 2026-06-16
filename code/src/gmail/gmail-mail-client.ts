@@ -6,7 +6,6 @@ import axios from 'axios';
 import { randomBytes } from 'crypto';
 
 import type { GmailSnapInLogger } from '../lib/gmail-logger';
-import type { GmailOAuthCredentials } from './gmail-oauth-credentials';
 import type { ParsedAttachment } from './parse-attachments';
 
 export type GmailBodyFormat = 'html' | 'plain';
@@ -83,44 +82,6 @@ function buildSimpleMessage(params: GmailSendParams): string {
   return `${headerLines.join('\r\n')}\r\n\r\n${params.body}`;
 }
 
-async function refreshAccessToken(credentials: GmailOAuthCredentials, logger: GmailSnapInLogger): Promise<string> {
-  const body = new URLSearchParams({
-    client_id: credentials.clientId,
-    client_secret: credentials.clientSecret,
-    grant_type: 'refresh_token',
-    // redirect_uri is not required for refresh-token grant, but we keep it for compatibility/debugging.
-    redirect_uri: credentials.redirectUri,
-
-    refresh_token: credentials.refreshToken,
-  });
-
-  const tokenRes = await axios.post('https://oauth2.googleapis.com/token', body.toString(), {
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    maxBodyLength: 1024 * 1024,
-    maxContentLength: 1024 * 1024,
-    timeout: 30_000,
-    validateStatus: () => true,
-  });
-
-  if (tokenRes.status < 200 || tokenRes.status >= 300) {
-    const detail = typeof tokenRes.data === 'string' ? tokenRes.data : JSON.stringify(tokenRes.data);
-    logger.error('OAuth token refresh failed:', tokenRes.status, detail);
-    throw new Error(`OAuth token refresh failed with HTTP ${tokenRes.status}.`);
-  }
-
-  const accessToken =
-    tokenRes.data && typeof tokenRes.data === 'object' && 'access_token' in (tokenRes.data as Record<string, unknown>)
-      ? String((tokenRes.data as Record<string, unknown>)['access_token'] ?? '')
-      : '';
-
-  if (!accessToken) {
-    logger.error('OAuth token refresh did not return access_token:', tokenRes.data);
-    throw new Error('OAuth token refresh failed (missing access_token).');
-  }
-
-  return accessToken;
-}
-
 /**
  * Builds a raw RFC 2822 message payload (CRLF line endings), suitable for encoding and sending via Gmail API.
  * This is kept pure/deterministic (except for multipart boundary) so it can be unit tested.
@@ -133,7 +94,7 @@ export function buildRawEmailMessage(params: GmailSendParams): string {
 }
 
 export async function sendGmailMessage(
-  credentials: GmailOAuthCredentials,
+  accessToken: string,
   params: GmailSendParams,
   logger: GmailSnapInLogger
 ): Promise<{ readonly messageId: string }> {
@@ -144,8 +105,6 @@ export async function sendGmailMessage(
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
     .replace(/=+$/, '');
-
-  const accessToken = await refreshAccessToken(credentials, logger);
 
   const result = await axios.post(
     'https://gmail.googleapis.com/gmail/v1/users/me/messages/send',
