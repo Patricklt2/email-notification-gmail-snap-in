@@ -5,14 +5,20 @@
 dev:
   marketplace_listing_slug: email-notification-gmail
   snap_in_package_slug: email-notification-gmail
-  developer_connections: []
+  developer_connections:
+    - name: gmail-oauth-secret
+      keyring_id: don:integration:dvrv-us-1:devo/787:keyring/38dc5d7a-8561-4426-ae20-8d9916524d7d
 
 qa:
   marketplace_listing_slug: email-notification-gmail
   snap_in_package_slug: email-notification-gmail
-  developer_connections: []
+  developer_connections:
+    - name: gmail-oauth-secret
+      keyring_id: don:integration:dvrv-us-1:devo/188:keyring/4d73c7dc-c2f4-42ea-93fd-a7e189973f87
 
 prod:
   marketplace_listing_slug: email-notification-gmail
   snap_in_package_slug: email-notification-gmail
-  developer_connections: []
+  developer_connections:
+    - name: gmail-oauth-secret
+      keyring_id: don:integration:dvrv-us-1:devo/0:keyring/51c31e94-6937-4c0f-9809-e4f0267d62f0
