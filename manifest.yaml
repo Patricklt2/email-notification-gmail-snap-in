@@ -40,7 +40,7 @@ keyring_types:
     authorize:
       type: config
       grant_type: authorization_code
-      auth_url: "https://accounts.google.com/o/oauth2/auth"
+      auth_url: "https://accounts.google.com/o/oauth2/v2/auth"
       token_url: "https://oauth2.googleapis.com/token"
 
       auth_query_parameters:
@@ -83,7 +83,7 @@ operations:
     keyrings:
       - name: gmail_oauth
         display_name: Gmail OAuth
-        description: Google OAuth client ID, secret, redirect URI, and refresh token for Gmail API.
+        description: Google OAuth2 credentials for Gmail API access, handled via keyring.
         types:
           - gmail-oauth
     inputs:
