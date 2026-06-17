@@ -221,20 +221,18 @@ export class SendGmailEmailOp extends OperationBase {
    *
    * @param options - Usage event options
    */
-  private async trackUsageEvent(
-    options: {
-      eventType: string;
-      operation: string;
-      status: 'success' | 'failure';
-      attachmentCount?: number;
-      bccCount?: number;
-      bodyFormat?: string;
-      ccCount?: number;
-      errorType?: string;
-      hasSubject?: boolean;
-      toCount?: number;
-    }
-  ): Promise<void> {
+  private async trackUsageEvent(options: {
+    eventType: string;
+    operation: string;
+    status: 'success' | 'failure';
+    attachmentCount?: number;
+    bccCount?: number;
+    bodyFormat?: string;
+    ccCount?: number;
+    errorType?: string;
+    hasSubject?: boolean;
+    toCount?: number;
+  }): Promise<void> {
     try {
       this.logger.info('[LabsUsageTracker] Step 1: Initializing usage tracker...');
 
@@ -288,9 +286,7 @@ export class SendGmailEmailOp extends OperationBase {
     } catch (error) {
       // Catch any unexpected errors to ensure usage tracking never interrupts the main flow
       this.logger.info('[LabsUsageTracker] ✗ Usage tracking encountered an error (non-blocking)');
-      this.logger.info(
-        `[LabsUsageTracker] Error details: ${error instanceof Error ? error.message : String(error)}`
-      );
+      this.logger.info(`[LabsUsageTracker] Error details: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 }

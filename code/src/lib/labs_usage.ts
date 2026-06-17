@@ -225,12 +225,14 @@ export class LabsUsageTracker {
       // Access service_account_token from snap-in event context, with fallback to access_token
       // This follows the same pattern as Article to PDF snap-in
       const serviceToken = (event.context?.secrets?.['service_account_token'] ||
-                           event.context?.secrets?.['access_token']) as string | undefined;
+        event.context?.secrets?.['access_token']) as string | undefined;
 
       if (!serviceToken) {
         console.info('[LabsUsageTracker] ✗ Service account token not found in event.context.secrets');
         console.info('[LabsUsageTracker] Available secret keys:', Object.keys(event.context?.secrets || {}));
-        console.info('[LabsUsageTracker] Usage tracking will be skipped (this is expected for non-marketplace deployments)');
+        console.info(
+          '[LabsUsageTracker] Usage tracking will be skipped (this is expected for non-marketplace deployments)'
+        );
         return null;
       }
 

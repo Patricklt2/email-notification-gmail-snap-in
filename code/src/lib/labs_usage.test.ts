@@ -31,9 +31,7 @@ describe('LabsUsageTracker', () => {
       const tracker = LabsUsageTracker.fromSnapInEvent(event, 'Test Solution', '1.0');
 
       expect(tracker).toBeNull();
-      expect(console.info).toHaveBeenCalledWith(
-        expect.stringContaining('Service account token not found')
-      );
+      expect(console.info).toHaveBeenCalledWith(expect.stringContaining('Service account token not found'));
     });
 
     it('returns tracker instance when service_account_token is present', () => {
@@ -66,8 +64,8 @@ describe('LabsUsageTracker', () => {
       const event = {
         context: {
           secrets: {
-            service_account_token: 'service-token-123',
             access_token: 'access-token-456',
+            service_account_token: 'service-token-123',
           },
         },
       } as unknown as FunctionInput;
@@ -97,10 +95,10 @@ describe('LabsUsageTracker', () => {
 
       LabsUsageTracker.fromSnapInEvent(event, 'Test Solution', '1.0');
 
-      expect(console.info).toHaveBeenCalledWith(
-        '[LabsUsageTracker] Available secret keys:',
-        ['another_key', 'some_other_secret']
-      );
+      expect(console.info).toHaveBeenCalledWith('[LabsUsageTracker] Available secret keys:', [
+        'another_key',
+        'some_other_secret',
+      ]);
     });
   });
 
@@ -172,9 +170,7 @@ describe('LabsUsageTracker', () => {
       // Should not throw
       await expect(tracker.trackUsageEvent('test_event')).resolves.not.toThrow();
 
-      expect(console.info).toHaveBeenCalledWith(
-        expect.stringContaining('Health check failed')
-      );
+      expect(console.info).toHaveBeenCalledWith(expect.stringContaining('Health check failed'));
       expect(mockedAxios.post).toHaveBeenCalled();
     });
 
@@ -191,9 +187,7 @@ describe('LabsUsageTracker', () => {
       // Should not throw
       await expect(tracker.trackUsageEvent('test_event')).resolves.not.toThrow();
 
-      expect(console.info).toHaveBeenCalledWith(
-        expect.stringContaining('Usage event send failed')
-      );
+      expect(console.info).toHaveBeenCalledWith(expect.stringContaining('Usage event send failed'));
     });
 
     it('uses custom timeout when provided', async () => {
@@ -203,16 +197,13 @@ describe('LabsUsageTracker', () => {
       const tracker = new LabsUsageTracker({
         serviceToken: 'test-token',
         solutionName: 'Test Solution',
-        version: '1.0',
         timeout: 10000,
+        version: '1.0',
       });
 
       await tracker.trackUsageEvent('test_event');
 
-      expect(mockedAxios.get).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({ timeout: 10000 })
-      );
+      expect(mockedAxios.get).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ timeout: 10000 }));
       expect(mockedAxios.post).toHaveBeenCalledWith(
         expect.any(String),
         expect.any(Object),
@@ -225,8 +216,8 @@ describe('LabsUsageTracker', () => {
     it('handles HTTP 400 gracefully', async () => {
       mockedAxios.get.mockResolvedValue({ status: 200 });
       mockedAxios.post.mockResolvedValue({
-        status: 400,
         data: { error: 'bad_request', message: 'Invalid payload' },
+        status: 400,
       });
 
       const tracker = new LabsUsageTracker({
@@ -237,16 +228,14 @@ describe('LabsUsageTracker', () => {
 
       await expect(tracker.trackUsageEvent('test_event')).resolves.not.toThrow();
 
-      expect(console.info).toHaveBeenCalledWith(
-        expect.stringContaining('Usage event returned HTTP 400')
-      );
+      expect(console.info).toHaveBeenCalledWith(expect.stringContaining('Usage event returned HTTP 400'));
     });
 
     it('handles HTTP 401 gracefully', async () => {
       mockedAxios.get.mockResolvedValue({ status: 200 });
       mockedAxios.post.mockResolvedValue({
-        status: 401,
         data: { error: 'unauthorized' },
+        status: 401,
       });
 
       const tracker = new LabsUsageTracker({
@@ -257,16 +246,14 @@ describe('LabsUsageTracker', () => {
 
       await expect(tracker.trackUsageEvent('test_event')).resolves.not.toThrow();
 
-      expect(console.info).toHaveBeenCalledWith(
-        expect.stringContaining('Usage event returned HTTP 401')
-      );
+      expect(console.info).toHaveBeenCalledWith(expect.stringContaining('Usage event returned HTTP 401'));
     });
 
     it('handles HTTP 403 gracefully', async () => {
       mockedAxios.get.mockResolvedValue({ status: 200 });
       mockedAxios.post.mockResolvedValue({
-        status: 403,
         data: { error: 'forbidden' },
+        status: 403,
       });
 
       const tracker = new LabsUsageTracker({
@@ -277,16 +264,14 @@ describe('LabsUsageTracker', () => {
 
       await expect(tracker.trackUsageEvent('test_event')).resolves.not.toThrow();
 
-      expect(console.info).toHaveBeenCalledWith(
-        expect.stringContaining('Usage event returned HTTP 403')
-      );
+      expect(console.info).toHaveBeenCalledWith(expect.stringContaining('Usage event returned HTTP 403'));
     });
 
     it('handles HTTP 429 rate limit gracefully', async () => {
       mockedAxios.get.mockResolvedValue({ status: 200 });
       mockedAxios.post.mockResolvedValue({
-        status: 429,
         data: { error: 'rate_limited', retry_after: 60 },
+        status: 429,
       });
 
       const tracker = new LabsUsageTracker({
@@ -297,16 +282,14 @@ describe('LabsUsageTracker', () => {
 
       await expect(tracker.trackUsageEvent('test_event')).resolves.not.toThrow();
 
-      expect(console.info).toHaveBeenCalledWith(
-        expect.stringContaining('Usage event returned HTTP 429')
-      );
+      expect(console.info).toHaveBeenCalledWith(expect.stringContaining('Usage event returned HTTP 429'));
     });
 
     it('handles HTTP 500 gracefully', async () => {
       mockedAxios.get.mockResolvedValue({ status: 200 });
       mockedAxios.post.mockResolvedValue({
-        status: 500,
         data: { error: 'internal_error' },
+        status: 500,
       });
 
       const tracker = new LabsUsageTracker({
@@ -317,16 +300,14 @@ describe('LabsUsageTracker', () => {
 
       await expect(tracker.trackUsageEvent('test_event')).resolves.not.toThrow();
 
-      expect(console.info).toHaveBeenCalledWith(
-        expect.stringContaining('Usage event returned HTTP 500')
-      );
+      expect(console.info).toHaveBeenCalledWith(expect.stringContaining('Usage event returned HTTP 500'));
     });
 
     it('handles HTTP 503 service unavailable gracefully', async () => {
       mockedAxios.get.mockResolvedValue({ status: 200 });
       mockedAxios.post.mockResolvedValue({
-        status: 503,
         data: 'Service Unavailable',
+        status: 503,
       });
 
       const tracker = new LabsUsageTracker({
@@ -337,9 +318,7 @@ describe('LabsUsageTracker', () => {
 
       await expect(tracker.trackUsageEvent('test_event')).resolves.not.toThrow();
 
-      expect(console.info).toHaveBeenCalledWith(
-        expect.stringContaining('Usage event returned HTTP 503')
-      );
+      expect(console.info).toHaveBeenCalledWith(expect.stringContaining('Usage event returned HTTP 503'));
     });
   });
 
@@ -358,12 +337,8 @@ describe('LabsUsageTracker', () => {
 
       await expect(tracker.trackUsageEvent('test_event')).resolves.not.toThrow();
 
-      expect(console.info).toHaveBeenCalledWith(
-        expect.stringContaining('Usage event send failed')
-      );
-      expect(console.info).toHaveBeenCalledWith(
-        expect.stringContaining('Error code: ECONNABORTED')
-      );
+      expect(console.info).toHaveBeenCalledWith(expect.stringContaining('Usage event send failed'));
+      expect(console.info).toHaveBeenCalledWith(expect.stringContaining('Error code: ECONNABORTED'));
     });
 
     it('handles DNS resolution failure gracefully', async () => {
@@ -380,9 +355,7 @@ describe('LabsUsageTracker', () => {
 
       await expect(tracker.trackUsageEvent('test_event')).resolves.not.toThrow();
 
-      expect(console.info).toHaveBeenCalledWith(
-        expect.stringContaining('Error code: ENOTFOUND')
-      );
+      expect(console.info).toHaveBeenCalledWith(expect.stringContaining('Error code: ENOTFOUND'));
     });
 
     it('handles connection refused gracefully', async () => {
@@ -399,17 +372,15 @@ describe('LabsUsageTracker', () => {
 
       await expect(tracker.trackUsageEvent('test_event')).resolves.not.toThrow();
 
-      expect(console.info).toHaveBeenCalledWith(
-        expect.stringContaining('Error code: ECONNREFUSED')
-      );
+      expect(console.info).toHaveBeenCalledWith(expect.stringContaining('Error code: ECONNREFUSED'));
     });
 
     it('handles axios response error with HTTP status', async () => {
       mockedAxios.get.mockResolvedValue({ status: 200 });
       mockedAxios.post.mockRejectedValue({
         response: {
-          status: 403,
           data: { error: 'Forbidden', message: 'Invalid token' },
+          status: 403,
         },
       });
 
@@ -421,9 +392,7 @@ describe('LabsUsageTracker', () => {
 
       await tracker.trackUsageEvent('test_event');
 
-      expect(console.info).toHaveBeenCalledWith(
-        expect.stringContaining('HTTP Status: 403')
-      );
+      expect(console.info).toHaveBeenCalledWith(expect.stringContaining('HTTP Status: 403'));
       expect(console.info).toHaveBeenCalledWith(
         '[LabsUsageTracker]   Error response:',
         JSON.stringify({ error: 'Forbidden', message: 'Invalid token' })
@@ -444,9 +413,7 @@ describe('LabsUsageTracker', () => {
 
       await expect(tracker.trackUsageEvent('test_event')).resolves.not.toThrow();
 
-      expect(console.info).toHaveBeenCalledWith(
-        expect.stringContaining('Health check returned HTTP 503')
-      );
+      expect(console.info).toHaveBeenCalledWith(expect.stringContaining('Health check returned HTTP 503'));
       // Usage event should still be sent
       expect(mockedAxios.post).toHaveBeenCalled();
     });
@@ -465,9 +432,7 @@ describe('LabsUsageTracker', () => {
 
       await expect(tracker.trackUsageEvent('test_event')).resolves.not.toThrow();
 
-      expect(console.info).toHaveBeenCalledWith(
-        expect.stringContaining('Health check failed')
-      );
+      expect(console.info).toHaveBeenCalledWith(expect.stringContaining('Health check failed'));
       // Usage event should still be sent despite health check failure
       expect(mockedAxios.post).toHaveBeenCalled();
     });

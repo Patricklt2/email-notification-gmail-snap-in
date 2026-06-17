@@ -193,7 +193,7 @@ describe('SendGmailEmailOp', () => {
 
     const j = OperationOutput.toJSON(out) as { output?: { values?: Array<{ success: boolean }> } };
     expect(j.output?.values?.[0]?.success).toBe(true);
-    expect(mockedSendGmail.mock.calls[0][0]).toBe(accessToken);
+    expect(mockedSendGmail).toHaveBeenCalledWith(accessToken, expect.anything(), expect.anything());
   });
 
   it('passes the keyring secret as the access token to sendGmailMessage', async () => {
@@ -203,6 +203,6 @@ describe('SendGmailEmailOp', () => {
       data: { body: 'B', subject: 'S', to: 'a@b.com' },
       metadata: { namespace: 'devrev', slug: 'send_gmail_email' },
     } as never);
-    expect(mockedSendGmail.mock.calls[0][0]).toBe(TEST_ACCESS_TOKEN);
+    expect(mockedSendGmail).toHaveBeenCalledWith(TEST_ACCESS_TOKEN, expect.anything(), expect.anything());
   });
 });
