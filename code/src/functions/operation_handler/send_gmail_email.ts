@@ -18,16 +18,11 @@ import {
   recipientLinesToValidatedAddresses,
   splitRecipientList,
 } from '../../gmail/email-recipients';
-import { resolveGmailOAuthKeyringSecret, secretFromKeyringsMap } from '../../gmail/gmail-keyring';
 import { sendGmailMessage } from '../../gmail/gmail-mail-client';
-import { logKeyringDiagnostics } from '../../gmail/keyring-debug-logs';
-import { fetchSnapInResources } from '../../gmail/snap-in-resources-client';
 import { createGmailLogger } from '../../lib/gmail-logger';
 import { LabsUsageTracker } from '../../lib/labs_usage';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const packageJson = require('../../../package.json');
-
-export { resolveGmailOAuthKeyringSecret } from '../../gmail/gmail-keyring';
 
 export class SendGmailEmailOp extends OperationBase {
   private readonly snapEvent: FunctionInput;
@@ -78,24 +73,6 @@ export class SendGmailEmailOp extends OperationBase {
     return normalized === 'plain' ? 'plain' : 'html';
   }
 
-  /**
-   * Resolves the Gmail OAuth access token from the event itself and (as fallback) from the
-   * Snap-in resources API. The DevRev keyring service manages the OAuth flow and refresh,
-   * so the keyring secret delivered to the snap-in is a ready-to-use access token.
-   */
-  private async resolveAccessToken(): Promise<string | undefined> {
-    let accessToken = resolveGmailOAuthKeyringSecret(this.snapEvent, this.logger);
-    if (accessToken) {
-      return accessToken;
-    }
-
-    const snap = await fetchSnapInResources(this.snapEvent, this.logger);
-    if (snap?.keyrings && Object.keys(snap.keyrings).length > 0) {
-      accessToken = secretFromKeyringsMap(snap.keyrings);
-    }
-    return accessToken;
-  }
-
   private parseRecipientsOrFail(
     params: Record<string, unknown>
   ): { ok: true; to: string[]; cc: string[]; bcc: string[] } | { ok: false; error: string } {
@@ -124,8 +101,6 @@ export class SendGmailEmailOp extends OperationBase {
     const bodyFormat = this.resolveBodyFormat(params['body_format']);
 
     try {
-      logKeyringDiagnostics(this.snapEvent, this.logger);
-
       const toLineRequired = this.requireNonEmptyText('To', params['to']);
       if (typeof toLineRequired !== 'string') return this.fail(toLineRequired.error);
 
@@ -146,7 +121,7 @@ export class SendGmailEmailOp extends OperationBase {
         return this.fail('One or more To addresses are invalid.');
       }
 
-      const accessToken = await this.resolveAccessToken();
+      const accessToken = this.snapEvent.input_data?.resources?.['keyrings']?.gmail_oauth?.secret as string | undefined;
       if (!accessToken) {
         return this.fail('Gmail OAuth connection is not configured. Connect a Gmail account in snap-in settings.');
       }

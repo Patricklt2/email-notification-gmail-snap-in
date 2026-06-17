@@ -2,7 +2,7 @@ import { FunctionInput, OperationOutput } from '@devrev/typescript-sdk/dist/snap
 
 import { resolveArtifactAttachments } from '../../devrev/devrev-artifacts';
 import { sendGmailMessage } from '../../gmail/gmail-mail-client';
-import { resolveGmailOAuthKeyringSecret, SendGmailEmailOp } from './send_gmail_email';
+import { SendGmailEmailOp } from './send_gmail_email';
 
 jest.mock('../../gmail/gmail-mail-client', () => ({
   sendGmailMessage: jest.fn().mockResolvedValue({ messageId: 'mock-msg-id' }),
@@ -164,36 +164,6 @@ describe('SendGmailEmailOp', () => {
     };
     expect(j.output?.values?.[0]?.success).toBe(true);
     expect(mockedResolveArtifacts).toHaveBeenCalledWith(expect.anything(), ['[not-json]'], expect.anything());
-  });
-
-  it('resolves keyring from input_data.keyrings when resources.keyrings is empty', async () => {
-    const accessToken = 'ya29.top-level-token';
-    const ev = baseEvent({
-      input_data: {
-        event_sources: {},
-        global_values: {},
-        keyrings: {
-          gmail_oauth: {
-            id: 'k-top',
-            secret: accessToken,
-            type_id: 'gmail-oauth',
-          },
-        },
-        resources: { keyrings: {} },
-      },
-    } as Partial<FunctionInput>);
-
-    expect(resolveGmailOAuthKeyringSecret(ev)).toBe(accessToken);
-
-    const op = new SendGmailEmailOp(ev);
-    const out = await op.run(op.GetContext(), {
-      data: { body: '<p>x</p>', subject: 'S', to: 'a@b.com' },
-      metadata: { namespace: 'devrev', slug: 'send_gmail_email' },
-    } as never);
-
-    const j = OperationOutput.toJSON(out) as { output?: { values?: Array<{ success: boolean }> } };
-    expect(j.output?.values?.[0]?.success).toBe(true);
-    expect(mockedSendGmail).toHaveBeenCalledWith(accessToken, expect.anything(), expect.anything());
   });
 
   it('passes the keyring secret as the access token to sendGmailMessage', async () => {
