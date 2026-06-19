@@ -157,6 +157,7 @@ export class SendGmailEmailOp extends OperationBase {
       if ('errorMessage' in parsed) {
         return this.fail(parsed.errorMessage);
       }
+      const auth = 'credentials' in parsed ? parsed.credentials : { accessToken: parsed.accessToken };
 
       const recipients = this.parseRecipientsOrFail(params);
       if (!recipients.ok) return this.fail(recipients.error);
@@ -174,7 +175,7 @@ export class SendGmailEmailOp extends OperationBase {
       }
 
       await sendGmailMessage(
-        parsed.credentials,
+        auth,
         {
           attachments,
           bccAddresses: recipients.bcc,

@@ -1,5 +1,7 @@
 /**
- * Parses the Gmail OAuth keyring JSON blob into discrete Google OAuth fields.
+ * Parses the Gmail OAuth keyring secret. Supports two keyring shapes:
+ *  - gmail-oauth-mail: JSON blob with manual OAuth client + refresh token (requires token exchange).
+ *  - gmail-auto-oauth: raw access token string managed by DevRev (used directly as Bearer).
  */
 
 export type GmailOAuthCredentials = {
@@ -9,20 +11,38 @@ export type GmailOAuthCredentials = {
   readonly refreshToken: string;
 };
 
-export function parseGmailOAuthKeyringSecretJson(
-  keyringSecretJson: string
-): { readonly credentials: GmailOAuthCredentials } | { readonly errorMessage: string } {
+export type GmailKeyringParseResult =
+  | { readonly credentials: GmailOAuthCredentials }
+  | { readonly accessToken: string }
+  | { readonly errorMessage: string };
+
+export function parseGmailOAuthKeyringSecretJson(keyringSecretJson: string): GmailKeyringParseResult {
+  const trimmed = keyringSecretJson.trim();
+  let secretObj: Record<string, unknown>;
   try {
-    const secretObj = JSON.parse(keyringSecretJson) as Record<string, string>;
-    const clientId = secretObj['client_id'];
-    const clientSecret = secretObj['client_secret'];
-    const redirectUri = secretObj['redirect_uri'];
-    const refreshToken = secretObj['refresh_token'];
-    if (!clientId || !clientSecret || !redirectUri || !refreshToken) {
-      return {
-        errorMessage: 'Keyring must include client_id, client_secret, redirect_uri, and refresh_token.',
-      };
+    const parsed = JSON.parse(trimmed);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return { accessToken: trimmed };
     }
+    secretObj = parsed as Record<string, unknown>;
+  } catch {
+    return { accessToken: trimmed };
+  }
+
+  const clientId = secretObj['client_id'];
+  const clientSecret = secretObj['client_secret'];
+  const redirectUri = secretObj['redirect_uri'];
+  const refreshToken = secretObj['refresh_token'];
+  if (
+    typeof clientId === 'string' &&
+    typeof clientSecret === 'string' &&
+    typeof redirectUri === 'string' &&
+    typeof refreshToken === 'string' &&
+    clientId &&
+    clientSecret &&
+    redirectUri &&
+    refreshToken
+  ) {
     return {
       credentials: {
         clientId,
@@ -31,7 +51,14 @@ export function parseGmailOAuthKeyringSecretJson(
         refreshToken,
       },
     };
-  } catch {
-    return { errorMessage: 'Invalid keyring secret format.' };
   }
+
+  const accessToken = secretObj['access_token'];
+  if (typeof accessToken === 'string' && accessToken.trim()) {
+    return { accessToken: accessToken.trim() };
+  }
+
+  return {
+    errorMessage: 'Keyring must include client_id, client_secret, redirect_uri, and refresh_token.',
+  };
 }

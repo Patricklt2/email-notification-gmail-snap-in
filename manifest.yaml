@@ -15,6 +15,11 @@ service_account:
 
 # Workflow operations must declare keyrings under operations[].keyrings.
 
+developer_keyrings:
+  - name: gmail-oauth-secret
+    description: Google OAuth client secret
+    display_name: Gmail OAuth Secret
+
 keyring_types:
   - id: gmail-oauth-mail
     name: "Gmail OAuth (send mail)"
@@ -34,6 +39,55 @@ keyring_types:
         - id: refresh_token
           name: Refresh Token
           description: OAuth refresh token for the sending Google account
+  - id: gmail-auto-oauth
+    name: Gmail Connection
+    description: Gmail OAuth2 Connection
+    kind: oauth2
+    external_system_name: Gmail
+
+    scopes:
+      - name: gmail_modify
+        description: Read and modify Gmail messages and labels
+        value: "https://www.googleapis.com/auth/gmail.modify"
+
+      - name: gmail_send
+        description: Send Gmail messages
+        value: "https://www.googleapis.com/auth/gmail.send"
+
+    scope_delimiter: " "
+    oauth_secret: gmail-oauth-secret
+
+    authorize:
+      type: config
+      grant_type: authorization_code
+      auth_url: "https://accounts.google.com/o/oauth2/v2/auth"
+      token_url: "https://oauth2.googleapis.com/token"
+
+      auth_query_parameters:
+        client_id: "[CLIENT_ID]"
+        scope: "[SCOPES]"
+        response_type: "code"
+        access_type: "offline"
+        prompt: "consent"
+
+      token_query_parameters:
+        client_id: "[CLIENT_ID]"
+        client_secret: "[CLIENT_SECRET]"
+        scope: "[SCOPES]"
+
+    refresh:
+      type: config
+      url: "https://oauth2.googleapis.com/token"
+      method: POST
+
+      query_parameters:
+        client_id: "[CLIENT_ID]"
+        client_secret: "[CLIENT_SECRET]"
+        refresh_token: "[REFRESH_TOKEN]"
+        scope: "[SCOPES]"
+
+      headers:
+        Content-Type: "application/x-www-form-urlencoded"
 
 functions:
   - name: operation_handler
@@ -51,6 +105,7 @@ operations:
         display_name: Gmail OAuth
         description: Google OAuth client ID, secret, redirect URI, and refresh token for Gmail API.
         types:
+          - gmail-auto-oauth
           - gmail-oauth-mail
     inputs:
       fields:

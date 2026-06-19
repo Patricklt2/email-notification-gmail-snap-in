@@ -9,6 +9,8 @@ import type { GmailSnapInLogger } from '../lib/gmail-logger';
 import type { GmailOAuthCredentials } from './gmail-oauth-credentials';
 import type { ParsedAttachment } from './parse-attachments';
 
+export type GmailAuth = GmailOAuthCredentials | { readonly accessToken: string };
+
 export type GmailBodyFormat = 'html' | 'plain';
 
 /**
@@ -133,7 +135,7 @@ export function buildRawEmailMessage(params: GmailSendParams): string {
 }
 
 export async function sendGmailMessage(
-  credentials: GmailOAuthCredentials,
+  auth: GmailAuth,
   params: GmailSendParams,
   logger: GmailSnapInLogger
 ): Promise<{ readonly messageId: string }> {
@@ -145,7 +147,7 @@ export async function sendGmailMessage(
     .replace(/\//g, '_')
     .replace(/=+$/, '');
 
-  const accessToken = await refreshAccessToken(credentials, logger);
+  const accessToken = 'accessToken' in auth ? auth.accessToken : await refreshAccessToken(auth, logger);
 
   const result = await axios.post(
     'https://gmail.googleapis.com/gmail/v1/users/me/messages/send',
