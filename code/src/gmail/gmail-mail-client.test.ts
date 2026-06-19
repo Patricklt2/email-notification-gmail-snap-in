@@ -1,4 +1,10 @@
-import { buildRawEmailMessage } from './gmail-mail-client';
+import axios from 'axios';
+
+import { createGmailLogger } from '../lib/gmail-logger';
+import { buildRawEmailMessage, sendGmailMessage } from './gmail-mail-client';
+
+jest.mock('axios');
+const mockedAxios = axios as jest.Mocked<typeof axios>;
 
 describe('buildRawEmailMessage', () => {
   it('builds a simple message when there are no attachments', () => {
@@ -40,5 +46,55 @@ describe('buildRawEmailMessage', () => {
     expect(raw).toContain('Content-Disposition: attachment; filename="a.pdf"\r\n');
     expect(raw).toContain('Content-Type: application/pdf; name="a.pdf"\r\n');
     expect(raw).toContain('Content-Transfer-Encoding: base64\r\n');
+  });
+});
+
+describe('sendGmailMessage auth shapes', () => {
+  const logger = createGmailLogger();
+  const params = {
+    attachments: [],
+    bccAddresses: [],
+    body: 'hello',
+    bodyFormat: 'plain' as const,
+    ccAddresses: [],
+    subject: 'S',
+    toAddresses: ['a@example.com'],
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('uses access token directly and skips the OAuth refresh when given { accessToken }', async () => {
+    mockedAxios.post.mockResolvedValueOnce({ data: { id: 'm-1' }, status: 200 });
+
+    const result = await sendGmailMessage({ accessToken: 'ya29.direct' }, params, logger);
+
+    expect(result.messageId).toBe('m-1');
+    expect(mockedAxios.post).toHaveBeenCalledTimes(1);
+    const [url, , config] = mockedAxios.post.mock.calls[0];
+    expect(url).toBe('https://gmail.googleapis.com/gmail/v1/users/me/messages/send');
+    expect((config as { headers: Record<string, string> }).headers['Authorization']).toBe('Bearer ya29.direct');
+  });
+
+  it('exchanges a refresh token for an access token when given manual credentials', async () => {
+    mockedAxios.post
+      .mockResolvedValueOnce({ data: { access_token: 'ya29.refreshed' }, status: 200 })
+      .mockResolvedValueOnce({ data: { id: 'm-2' }, status: 200 });
+
+    const credentials = {
+      clientId: 'cid',
+      clientSecret: 'csec',
+      redirectUri: 'urn:x',
+      refreshToken: 'rtok',
+    };
+    const result = await sendGmailMessage(credentials, params, logger);
+
+    expect(result.messageId).toBe('m-2');
+    expect(mockedAxios.post).toHaveBeenCalledTimes(2);
+    const [tokenUrl] = mockedAxios.post.mock.calls[0];
+    expect(tokenUrl).toBe('https://oauth2.googleapis.com/token');
+    const [, , sendConfig] = mockedAxios.post.mock.calls[1];
+    expect((sendConfig as { headers: Record<string, string> }).headers['Authorization']).toBe('Bearer ya29.refreshed');
   });
 });

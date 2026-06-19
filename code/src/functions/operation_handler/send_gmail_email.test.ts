@@ -170,6 +170,79 @@ describe('SendGmailEmailOp', () => {
     expect(mockedResolveArtifacts).toHaveBeenCalledWith(expect.anything(), ['[not-json]'], expect.anything());
   });
 
+  it('passes a bare access token to sendGmailMessage for gmail-auto-oauth keyrings', async () => {
+    const ev = baseEvent({
+      input_data: {
+        event_sources: {},
+        global_values: {},
+        resources: {
+          keyrings: {
+            gmail_oauth: {
+              id: 'k-auto',
+              secret: 'ya29.auto-oauth-access-token',
+              type_id: 'gmail-auto-oauth',
+            },
+          },
+        },
+      },
+    } as Partial<FunctionInput>);
+    const op = new SendGmailEmailOp(ev);
+    const out = await op.run(op.GetContext(), {
+      data: { body: '<p>x</p>', subject: 'S', to: 'a@b.com' },
+      metadata: { namespace: 'devrev', slug: 'send_gmail_email' },
+    } as never);
+
+    const j = OperationOutput.toJSON(out) as { output?: { values?: Array<{ success: boolean }> } };
+    expect(j.output?.values?.[0]?.success).toBe(true);
+    expect(mockedSendGmail).toHaveBeenCalledTimes(1);
+    expect(mockedSendGmail.mock.calls[0][0]).toEqual({ accessToken: 'ya29.auto-oauth-access-token' });
+  });
+
+  it('passes manual credentials to sendGmailMessage for gmail-oauth-mail keyrings', async () => {
+    const ev = baseEvent();
+    const op = new SendGmailEmailOp(ev);
+    await op.run(op.GetContext(), {
+      data: { body: '<p>x</p>', subject: 'S', to: 'a@b.com' },
+      metadata: { namespace: 'devrev', slug: 'send_gmail_email' },
+    } as never);
+
+    expect(mockedSendGmail.mock.calls[0][0]).toMatchObject({
+      clientId: 'cid',
+      clientSecret: 'csec',
+      redirectUri: 'urn:ietf:wg:oauth:2.0:oob',
+      refreshToken: 'rtok',
+    });
+  });
+
+  it('fails with the keyring validation error when JSON object lacks both manual fields and access_token', async () => {
+    const ev = baseEvent({
+      input_data: {
+        event_sources: {},
+        global_values: {},
+        resources: {
+          keyrings: {
+            gmail_oauth: {
+              id: 'k-bad',
+              secret: '{"client_id":"only-cid"}',
+              type_id: 'gmail-oauth-mail',
+            },
+          },
+        },
+      },
+    } as Partial<FunctionInput>);
+    const op = new SendGmailEmailOp(ev);
+    const out = await op.run(op.GetContext(), {
+      data: { body: 'B', subject: 'S', to: 'a@b.com' },
+      metadata: { namespace: 'devrev', slug: 'send_gmail_email' },
+    } as never);
+    const j = OperationOutput.toJSON(out) as {
+      output?: { values?: Array<{ success: boolean; error_message?: string }> };
+    };
+    expect(j.output?.values?.[0]?.success).toBe(false);
+    expect(j.output?.values?.[0]?.error_message).toMatch(/client_id, client_secret/);
+    expect(mockedSendGmail).not.toHaveBeenCalled();
+  });
+
   it('resolves keyring from input_data.keyrings when resources.keyrings is empty', async () => {
     const secretJson = JSON.stringify({
       client_id: 'id',
