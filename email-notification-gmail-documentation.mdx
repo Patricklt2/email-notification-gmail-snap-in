@@ -36,9 +36,10 @@ Before you install the snap-in, you need:
 
 ## How to configure
 
-Configuration happens in two places: Google Cloud (once, to get credentials) and DevRev (to store them securely).
+Configuration has two possible paths:
 
-### Step 1 — Create Google OAuth credentials
+### Path 1:
+#### Step 1 — Create Google OAuth credentials
 
 1. Open [Google Cloud Console](https://console.cloud.google.com/) and select (or create) a project.
 2. Go to **APIs & Services → Library**, search for **Gmail API**, and click **Enable**.
@@ -71,6 +72,12 @@ Configuration happens in two places: Google Cloud (once, to get credentials) and
 
 > **Note:** The email is sent *from* the Gmail account that the refresh token belongs to. Make sure that account has permission to send email.
 
+### Path 2:
+#### Setup Connection via OAuth2 consent screen
+For given gmail accounts that can be accessed, one can simply trigger the OAuth2 Consent Screen to grant access.
+
+If the intention is to use service accounts, path 1 should be done instead.
+Both connections will be able to be accessed from workflows on the same manner.
 ---
 
 ## How to use it in a workflow
